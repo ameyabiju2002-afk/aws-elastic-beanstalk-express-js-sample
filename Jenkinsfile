@@ -1,63 +1,38 @@
-
 pipeline {
-  agent {
-    docker {
-      image 'node:16'
-      args '-u 0:0'
-    }
-  }
-
-  environment {
-    IMAGE_REPO = '22063713/express-sample'
-    IMAGE_TAG  = "build-${env.BUILD_NUMBER}"
-  }
-
-  stages {
-
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
-    }
-
-    stage('Install dependencies') {
-      steps {
-        sh 'npm install --save'
-      }
-    }
-
-
-    stage('Test') {
-      steps {
-        sh 'npm test'
-      }
-    }
-
-    
-    stage('Build Docker image') {
-      steps {
-        script {
-          def app = docker.build("${IMAGE_REPO}:${IMAGE_TAG}")
-          sh "docker tag ${IMAGE_REPO}:${IMAGE_TAG} ${IMAGE_REPO}:latest"
+    agent {
+        // Run all steps inside a Node.js 16 Docker container
+        docker {
+            image 'node:16'
+            // Mount the host Docker socket so Jenkins can run Docker commands
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
-      }
     }
-
-    stage('Push Docker image') {
-      steps {
-        script {
-          docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-            sh "docker push ${IMAGE_REPO}:${IMAGE_TAG}"
-            sh "docker push ${IMAGE_REPO}:latest"
-          }
+    stages {
+        stage('Install dependencies') {
+            steps {
+                // Install project dependencies from package.json
+                sh 'npm install --save'
+            }
         }
-      }
+        stage('Run tests') {
+            steps {
+                // Run the unit tests defined in package.json
+                sh 'npm test'
+            }
+        }
+        stage('Build Docker image') {
+            steps {
+                // Build Docker image with your Docker Hub username + repo
+                sh 'docker build -t 22063713/assignment22063713:latest .'
+            }
+        }
+        stage('Push Docker image') {
+            steps {
+                // Push image to Docker Hub using credentials stored in Jenkins
+                withDockerRegistry([credentialsId: 'docker-hub-credentials', url: '']) {
+                    sh 'docker push 22063713/assignment22063713:latest'
+                }
+            }
+        }
     }
-  }
-
-  post {
-    always {
-      archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
-    }
-  }
 }
