@@ -5,11 +5,11 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "test": "echo \"No tests\" && exit 0",
+    "test": "echo \"No tests\" && exit 0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/aws-samples/aws-elastic-beanstalk-express-js-sample.git"
+    "url": "git+https://github.com/aws-samples/aws-elastic-beanstalk-express-js-sample.git"
   },
   "license": "MIT-0",
   "dependencies": {
