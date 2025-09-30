@@ -1,35 +1,63 @@
+
 pipeline {
-    agent { docker { image 'node:16' } }
+  agent {
+    docker {
+      image 'node:16'
+      args '-u 0:0'
+    }
+  }
 
-    stages {
-        stage('Build') {
-            steps {
-                echo 'Building...'
-                sh 'npm install --save'
-                sh 'npm audit fix || true'
-            }
-        }
+  environment {
+    IMAGE_REPO = '22063713/express-sample'
+    IMAGE_TAG  = "build-${env.BUILD_NUMBER}"
+  }
 
-        stage('Test') {
-            steps {
-                echo 'Testing...'
-                sh 'npm test || echo "No tests found, skipping..."'
-            }
-        }
+  stages {
 
-        stage('Deploy') {
-            steps {
-                echo 'Deploying...'
-                sh 'node app.js &'
-                sh 'sleep 5'
-                sh 'curl http://localhost:8082 || echo "App not responding on 8082"'
-            }
-        }
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
     }
 
-    post {
-        always {
-            archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
-        }
+    stage('Install dependencies') {
+      steps {
+        sh 'npm install --save'
+      }
     }
+
+
+    stage('Test') {
+      steps {
+        sh 'npm test'
+      }
+    }
+
+    
+    stage('Build Docker image') {
+      steps {
+        script {
+          def app = docker.build("${IMAGE_REPO}:${IMAGE_TAG}")
+          sh "docker tag ${IMAGE_REPO}:${IMAGE_TAG} ${IMAGE_REPO}:latest"
+        }
+      }
+    }
+
+    stage('Push Docker image') {
+      steps {
+        script {
+          docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+            sh "docker push ${IMAGE_REPO}:${IMAGE_TAG}"
+            sh "docker push ${IMAGE_REPO}:latest"
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
+    }
+  }
 }
