@@ -1,5 +1,10 @@
 pipeline {
-    agent { docker { image 'node:16' } }
+    agent {
+        docker {
+            image 'node:16'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     stages {
         stage('Install dependencies') {
@@ -10,7 +15,7 @@ pipeline {
 
         stage('Run tests') {
             steps {
-                sh 'npm test || echo "No tests to run"'
+                sh 'npm test'
             }
         }
 
@@ -22,7 +27,20 @@ pipeline {
 
         stage('Push Docker image') {
             steps {
-                sh 'docker push 22063713/express-sample:latest || echo "Skipping push if not configured"'
+                withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
+                    sh 'docker push 22063713/express-sample:latest'
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                    sh 'npm install -g snyk'
+                    sh 'snyk auth $SNYK_TOKEN'
+                    // Fail the pipeline if HIGH or CRITICAL vulns are found
+                    sh 'snyk test --severity-threshold=high'
+                }
             }
         }
     }
