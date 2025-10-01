@@ -1,15 +1,17 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:16'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/<your-username>/aws-elastic-beanstalk-express-js-sample.git'
+            }
+        }
+
         stage('Install dependencies') {
             steps {
-                sh 'npm install --save'
+                sh 'npm install'
             }
         }
 
@@ -19,27 +21,24 @@ pipeline {
             }
         }
 
+        stage('Security Scan') {
+            steps {
+                // Run Snyk to scan for vulnerabilities
+                sh 'snyk test'
+            }
+        }
+
         stage('Build Docker image') {
             steps {
-                sh 'docker build -t 22063713/express-sample:latest .'
+                sh 'docker build -t my-app .'
             }
         }
 
         stage('Push Docker image') {
             steps {
-                withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
-                    sh 'docker push 22063713/express-sample:latest'
-                }
-            }
-        }
-
-        stage('Security Scan') {
-            steps {
-                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                    sh 'npm install -g snyk'
-                    sh 'snyk auth $SNYK_TOKEN'
-                    // Fail the pipeline if HIGH or CRITICAL vulns are found
-                    sh 'snyk test --severity-threshold=high'
+                withCredentials([string(credentialsId: 'dockerhub-token', variable: 'DOCKER_HUB_TOKEN')]) {
+                    sh 'echo $DOCKER_HUB_TOKEN | docker login -u <your-username> --password-stdin'
+                    sh 'docker push my-app'
                 }
             }
         }
