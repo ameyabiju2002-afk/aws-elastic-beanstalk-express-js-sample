@@ -1,10 +1,8 @@
-# Node 16 + Docker CLI preinstalled
-FROM node:16
+# Node 16 on Alpine (repos still live)
+FROM node:16-alpine
 
-# Avoid interactive prompts; install only the docker client quickly
-RUN apt-get update \
- && apt-get install -y --no-install-recommends docker.io ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# Install Docker CLI on Alpine
+RUN apk add --no-cache docker-cli ca-certificates
 
-# Clear entrypoint so Jenkins can run arbitrary commands without warnings
+# Let Jenkins run commands without entrypoint noise
 ENTRYPOINT [""]
