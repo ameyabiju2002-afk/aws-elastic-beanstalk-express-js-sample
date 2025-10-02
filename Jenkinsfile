@@ -1,12 +1,12 @@
 pipeline {
     agent {
         docker {
-            image 'node:16'
+            image 'node:16'   // Node 16 build agent
         }
     }
 
     environment {
-        DOCKER_IMAGE = "22063713/aws-sample-app:latest"
+        DOCKER_IMAGE = "22063713/aws-sample-app:latest"   // your DockerHub repo + tag
     }
 
     stages {
@@ -60,19 +60,10 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    echo 'Installing Docker CLI inside Node 16 container...'
-                    sh '''
-                        apt-get update
-                        apt-get install -y docker.io
-                    '''
-
-                    echo 'Building Docker image...'
-                    sh 'docker build -t $DOCKER_IMAGE .'
-
-                    echo 'Pushing Docker image to DockerHub...'
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh 'docker push $DOCKER_IMAGE'
+                    echo 'Building & pushing Docker image with DinD...'
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
+                        def app = docker.build("${DOCKER_IMAGE}")
+                        app.push()
                     }
                 }
             }
