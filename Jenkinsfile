@@ -1,13 +1,29 @@
 pipeline {
-    agent none   // we will define agents per stage
+    agent {
+        docker {
+            image 'node:16'  
+            // Run as root so we can install Docker CLI inside
+            args '-u root:root --network jenkins_dind -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
+        // Define Docker image name for pushing to DockerHub
         DOCKER_IMAGE = "22063713/aws-sample-app:latest"
     }
 
     stages {
+        stage('Install Docker CLI') {
+            steps {
+                echo 'Installing Docker CLI inside Node.js 16 container...'
+                sh 'apt-get update && apt-get install -y docker.io'
+                sh 'docker --version'   // confirm Docker CLI works
+                sh 'node -v'            // confirm Node.js exists
+                sh 'npm -v'             // confirm npm exists
+            }
+        }
+
         stage('Install dependencies') {
-            agent { docker { image 'node:16' } }   // Node 16 for npm
             steps {
                 echo 'Installing dependencies...'
                 sh 'npm install --save'
@@ -15,7 +31,6 @@ pipeline {
         }
 
         stage('Snyk Security Scan') {
-            agent { docker { image 'node:16' } }   // Node 16 for scan
             steps {
                 echo 'Running Snyk vulnerability scan...'
                 sh 'npm install -g snyk'
@@ -34,7 +49,6 @@ pipeline {
         }
 
         stage('Test') {
-            agent { docker { image 'node:16' } }
             steps {
                 echo 'Running tests...'
                 sh 'npm test || echo "No tests available"'
@@ -42,7 +56,6 @@ pipeline {
         }
 
         stage('Build App') {
-            agent { docker { image 'node:16' } }
             steps {
                 echo 'Building application...'
                 sh 'echo "Build step complete"'
@@ -50,7 +63,6 @@ pipeline {
         }
 
         stage('Run Application') {
-            agent { docker { image 'node:16' } }
             steps {
                 echo 'Starting Node.js app...'
                 sh 'node app.js & sleep 5'
@@ -59,7 +71,6 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
-            agent { label 'master' }   // run on Jenkins host (with docker installed/mounted)
             steps {
                 script {
                     echo 'Building Docker image...'
@@ -75,7 +86,6 @@ pipeline {
         }
 
         stage('Deployment Stage') {
-            agent { label 'master' }
             steps {
                 echo 'Deployment stage in progress...'
             }
