@@ -12,7 +12,7 @@ pipeline {
 
   environment {
     DOCKER_HOST   = 'tcp://dind:2375'                     // talk to DinD
-    DOCKER_IMAGE  = 'YOUR_DOCKERHUB_USER/aws-sample-app:latest'  // <-- change
+    DOCKER_IMAGE  = '22063713/aws-sample-app:latest'  // <-- change
   }
 
   stages {
@@ -65,7 +65,7 @@ pipeline {
     /* ---- Security: Snyk scan; FAIL on high/critical ---- */
     stage('Security scan (Snyk)') {
       steps {
-        withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+        withCredentials([string(credentialsId: '2f0a84cb-1614-45cf-b58d-b4cd382db5c6', variable: 'SNYK_TOKEN')]) {
           sh '''#!/bin/sh
             set -eux
             npm i -g snyk
