@@ -35,7 +35,9 @@ pipeline {
     }
 
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage('Install dependencies') {
@@ -55,3 +57,40 @@ pipeline {
         '''
       }
     }
+
+    stage('Build image') {
+      steps {
+        sh '''#!/bin/bash
+          set -eux
+          docker version
+          docker build -t "$DOCKER_IMAGE" .
+        '''
+      }
+    }
+
+    stage('Push image') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                                          usernameVariable: 'DOCKERHUB_USER',
+                                          passwordVariable: 'DOCKERHUB_PASS')]) {
+          sh '''#!/bin/bash
+            set -eux
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+            docker push "$DOCKER_IMAGE"
+            docker logout || true
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh '''#!/bin/bash
+        set -eux
+        docker --version || true
+      '''
+      archiveArtifacts artifacts: 'npm-debug.log,**/junit*.xml', allowEmptyArchive: true
+    }
+  }
+}
