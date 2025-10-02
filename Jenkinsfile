@@ -21,13 +21,15 @@ pipeline {
             steps {
                 echo 'Running Snyk vulnerability scan...'
                 sh 'npm install -g snyk'
-                sh 'snyk auth 2f0a84cb-1614-45cf-b58d-b4cd382db5c6'
-                script {
-                    def result = sh(script: 'snyk test --severity-threshold=high', returnStatus: true)
-                    if (result != 0) {
-                        error "Pipeline failed due to High/Critical vulnerabilities"
-                    } else {
-                        echo "No High/Critical vulnerabilities detected"
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                    sh "snyk auth $SNYK_TOKEN"
+                    script {
+                        def result = sh(script: 'snyk test --severity-threshold=high', returnStatus: true)
+                        if (result != 0) {
+                            error "Pipeline failed due to High/Critical vulnerabilities"
+                        } else {
+                            echo "No High/Critical vulnerabilities detected"
+                        }
                     }
                 }
             }
