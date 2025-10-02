@@ -1,35 +1,34 @@
 pipeline {
   agent {
     docker {
-      image 'node:16'
+      image 'node16-with-dockercli:latest'         // <-- the image you built above
       args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
 
+  // Prevent the automatic "Declarative: Checkout SCM" (keeps logs cleaner)
+  options {
+    skipDefaultCheckout(true)
+    timestamps()
+  }
+
   environment {
-    DOCKER_IMAGE = 'YOUR_DOCKERHUB_USER/aws-sample-app:latest'   // <-- change this
+    // CHANGE this to your Docker Hub repo/tag
+    DOCKER_IMAGE = 'YOUR_DOCKERHUB_USER/aws-sample-app:latest'
   }
 
   stages {
+
     stage('Preflight') {
       steps {
         sh '''#!/bin/bash
           set -eux
           echo "Node:"; node -v
-          echo "NPM:"; npm -v
+          echo "NPM:";  npm -v
           echo "Socket:"; ls -l /var/run/docker.sock || true
-          which docker || echo "docker not in PATH yet"
-        '''
-      }
-    }
-
-    stage('Install Docker CLI') {
-      steps {
-        sh '''#!/bin/bash
-          set -euxo pipefail
-          apt-get update
-          apt-get install -y --no-install-recommends docker.io
+          echo "Docker CLI path:"; which docker
           docker --version
+          docker info >/dev/null 2>&1 || echo "WARNING: Docker daemon not reachable yet (will try again)."
         '''
       }
     }
