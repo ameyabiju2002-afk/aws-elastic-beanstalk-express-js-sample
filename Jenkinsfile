@@ -5,6 +5,10 @@ pipeline {
         }
     }
 
+    environment {
+        DOCKER_IMAGE = "22063713/aws-sample-app:latest"
+    }
+
     stages {
         stage('Install dependencies') {
             steps {
@@ -16,9 +20,7 @@ pipeline {
         stage('Snyk Security Scan') {
             steps {
                 echo 'Running Snyk vulnerability scan...'
-                // install snyk CLI inside pipeline container
                 sh 'npm install -g snyk'
-                // authenticate with token (replace with env var for safety)
                 sh 'snyk auth 2f0a84cb-1614-45cf-b58d-b4cd382db5c6'
                 script {
                     def result = sh(script: 'snyk test --severity-threshold=high', returnStatus: true)
@@ -38,10 +40,9 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build App') {
             steps {
                 echo 'Building application...'
-                // build step (for Node.js apps just echo or bundle if needed)
                 sh 'echo "Build step complete"'
             }
         }
@@ -51,6 +52,21 @@ pipeline {
                 echo 'Starting Node.js app...'
                 sh 'node app.js & sleep 5'
                 sh 'curl http://localhost:8080 || true'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    echo 'Building Docker image...'
+                    sh 'docker build -t $DOCKER_IMAGE .'
+
+                    echo 'Pushing Docker image to DockerHub...'
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push $DOCKER_IMAGE'
+                    }
+                }
             }
         }
 
