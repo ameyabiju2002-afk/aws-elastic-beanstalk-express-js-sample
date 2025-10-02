@@ -1,16 +1,13 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:16'   // Node 16 build agent
-        }
-    }
+    agent none   // we will define agents per stage
 
     environment {
-        DOCKER_IMAGE = "22063713/aws-sample-app:latest"   // your DockerHub repo + tag
+        DOCKER_IMAGE = "22063713/aws-sample-app:latest"
     }
 
     stages {
         stage('Install dependencies') {
+            agent { docker { image 'node:16' } }   // Node 16 for npm
             steps {
                 echo 'Installing dependencies...'
                 sh 'npm install --save'
@@ -18,6 +15,7 @@ pipeline {
         }
 
         stage('Snyk Security Scan') {
+            agent { docker { image 'node:16' } }   // Node 16 for scan
             steps {
                 echo 'Running Snyk vulnerability scan...'
                 sh 'npm install -g snyk'
@@ -36,6 +34,7 @@ pipeline {
         }
 
         stage('Test') {
+            agent { docker { image 'node:16' } }
             steps {
                 echo 'Running tests...'
                 sh 'npm test || echo "No tests available"'
@@ -43,6 +42,7 @@ pipeline {
         }
 
         stage('Build App') {
+            agent { docker { image 'node:16' } }
             steps {
                 echo 'Building application...'
                 sh 'echo "Build step complete"'
@@ -50,6 +50,7 @@ pipeline {
         }
 
         stage('Run Application') {
+            agent { docker { image 'node:16' } }
             steps {
                 echo 'Starting Node.js app...'
                 sh 'node app.js & sleep 5'
@@ -58,18 +59,23 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
+            agent { label 'master' }   // run on Jenkins host (with docker installed/mounted)
             steps {
                 script {
-                    echo 'Building & pushing Docker image with DinD...'
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
-                        def app = docker.build("${DOCKER_IMAGE}")
-                        app.push()
+                    echo 'Building Docker image...'
+                    sh 'docker build -t $DOCKER_IMAGE .'
+
+                    echo 'Pushing Docker image to DockerHub...'
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push $DOCKER_IMAGE'
                     }
                 }
             }
         }
 
         stage('Deployment Stage') {
+            agent { label 'master' }
             steps {
                 echo 'Deployment stage in progress...'
             }
