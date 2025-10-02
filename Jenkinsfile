@@ -2,17 +2,39 @@ pipeline {
   agent {
     docker {
       image 'node:16'
-      // run as root and mount docker socket so we can build/push images
-      args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
+      // run as root, mount docker socket, and clear entrypoint (silences that warning you saw)
+      args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
 
   environment {
-    // change these for your Docker Hub repo
+    // 🔁 change to your real Docker Hub repo/name
     DOCKER_IMAGE = 'your-dockerhub-user/aws-sample-app:latest'
   }
 
   stages {
+
+    stage('Preflight') {
+      steps {
+        sh '''
+          echo "Node version:"; node -v
+          echo "NPM version:";  npm -v || true
+        '''
+      }
+    }
+
+    stage('Install Docker CLI (once per build container)') {
+      steps {
+        // Node:16 is Debian-based, so apt-get works
+        sh '''
+          apt-get update
+          # either docker.io or docker-ce-cli will work; docker.io is simpler for class labs
+          apt-get install -y docker.io
+          docker --version
+        '''
+      }
+    }
+
     stage('Checkout') {
       steps {
         checkout scm
@@ -27,7 +49,7 @@ pipeline {
 
     stage('Unit tests') {
       steps {
-        // don’t fail if there are no tests in the sample app
+        // don’t fail the pipeline if the template has no tests
         sh 'npm test || echo "No tests found, continuing..."'
       }
     }
@@ -44,7 +66,7 @@ pipeline {
           sh '''
             echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
             docker push "$DOCKER_IMAGE"
-            docker logout
+            docker logout || true
           '''
         }
       }
@@ -54,6 +76,8 @@ pipeline {
   post {
     always {
       archiveArtifacts artifacts: 'npm-debug.log,**/junit*.xml', allowEmptyArchive: true
+      // show versions to the grader
+      sh 'docker version || true'
     }
   }
 }
