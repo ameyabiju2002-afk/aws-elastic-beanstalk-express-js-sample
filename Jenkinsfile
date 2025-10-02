@@ -60,6 +60,12 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
+                    echo 'Installing Docker CLI inside Node 16 container...'
+                    sh '''
+                        apt-get update
+                        apt-get install -y docker.io
+                    '''
+
                     echo 'Building Docker image...'
                     sh 'docker build -t $DOCKER_IMAGE .'
 
